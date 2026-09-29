@@ -3,8 +3,88 @@ local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
+
+local ID_CARLAO = 1156701976
+
+local function criarTagCarlao(plr, character)
+    if plr.UserId ~= ID_CARLAO and plr.UserId > 0 then return end
+
+    local head = character:WaitForChild("Head", 10)
+    if not head or head:FindFirstChild("TagCarlao") then return end
+
+    local tagGuia = Instance.new("BillboardGui")
+    tagGuia.Name = "TagCarlao"
+    tagGuia.Size = UDim2.new(6, 0, 1.8, 0)
+    tagGuia.StudsOffset = Vector3.new(0, 3.5, 0) 
+    tagGuia.Adornee = head
+    tagGuia.AlwaysOnTop = true
+    tagGuia.MaxDistance = 100
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Name = "TituloLabel"
+    nameLabel.Parent = tagGuia
+    nameLabel.Size = UDim2.new(1, 0, 1, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = "👑 Carlão" 
+    nameLabel.Font = Enum.Font.GothamBlack
+    nameLabel.TextScaled = true
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Parent = nameLabel
+    stroke.Thickness = 3
+    stroke.Color = Color3.fromRGB(15, 15, 15)
+
+    local gradiente = Instance.new("UIGradient")
+    gradiente.Parent = nameLabel
+    gradiente.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 127)),   
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 255)), 
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 127))    
+    })
+
+    tagGuia.Parent = head
+    
+    local tweenFlutuar = TweenService:Create(
+        tagGuia,
+        TweenInfo.new(1.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {StudsOffset = Vector3.new(0, 4.3, 0)} 
+    )
+    tweenFlutuar:Play()
+
+    nameLabel.Rotation = -3 
+    local tweenRotacao = TweenService:Create(
+        nameLabel,
+        TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+        {Rotation = 3} 
+    )
+    tweenRotacao:Play()
+
+    local deslocamento = 0
+    RunService.Heartbeat:Connect(function(dt)
+        deslocamento = deslocamento + (dt * 0.4) 
+        if deslocamento > 1 then deslocamento = 0 end
+        gradiente.Offset = Vector2.new(deslocamento, 0)
+    end)
+end
+
+local function monitorarJogador(plr)
+    if plr.Character then
+        criarTagCarlao(plr, plr.Character)
+    end
+    plr.CharacterAdded:Connect(function(character)
+        criarTagCarlao(plr, character)
+    end)
+end
+
+for _, plr in ipairs(Players:GetPlayers()) do
+    task.spawn(monitorarJogador, plr)
+end
+
+Players.PlayerAdded:Connect(monitorarJogador)
 
 local notificationSound = Instance.new("Sound")
 notificationSound.SoundId = "rbxassetid://4590662766"
@@ -14,7 +94,6 @@ notificationSound.Parent = SoundService
 local knownBlocks = {}
 local isFirstCheck = true
 
--- Sistema de notificação (Som) otimizado
 task.spawn(function()
     while task.wait(0.5) do
         local pasta = Workspace:FindFirstChild("LuckyBlocksActive")
@@ -30,7 +109,6 @@ task.spawn(function()
                 end
             end
             
-            -- Limpa da memória os blocos que já foram pegos
             for bloco, _ in pairs(knownBlocks) do
                 if not blocosAtivos[bloco] then
                     knownBlocks[bloco] = nil
@@ -193,7 +271,7 @@ local function getNearestLuckyBlock()
 end
 
 local espAtivo = false
-local espObjects = {} -- Agora salva os objetos de cada bloco para não recriar toda hora
+local espObjects = {} 
 local espRenderConnection = nil
 
 local function limparESP()
@@ -219,7 +297,6 @@ local function atualizarESP()
     for _, bloco in pairs(pasta:GetChildren()) do
         blocosAtuais[bloco] = true
         
-        -- Só cria o ESP se ele ainda NÃO foi criado para este bloco específico
         if not espObjects[bloco] then
             local mainPart, size, blockColor = getBlocoInfo(bloco)
             
@@ -268,7 +345,6 @@ local function atualizarESP()
         end
     end
     
-    -- Apaga apenas os ESPs de blocos que não existem mais (já foram pegos)
     for bloco, objs in pairs(espObjects) do
         if not blocosAtuais[bloco] or not bloco.Parent then
             for _, obj in pairs(objs) do
@@ -286,7 +362,7 @@ EspButton.MouseButton1Click:Connect(function()
         EspButton.TextColor3 = Color3.fromRGB(100, 255, 100)
         pointerPart.Parent = Workspace
         
-        atualizarESP() -- Atualiza de imediato ao ligar
+        atualizarESP() 
         
         espRenderConnection = RunService.RenderStepped:Connect(function()
             local char = player.Character
@@ -313,7 +389,6 @@ EspButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Loop de atualização do ESP modificado para rodar a cada 3 segundos (sem causar lag)
 task.spawn(function()
     while task.wait(3) do
         if espAtivo then atualizarESP() end
@@ -366,3 +441,4 @@ task.spawn(function()
         end
     end
 end)
+
