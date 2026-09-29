@@ -14,11 +14,14 @@ notificationSound.Parent = SoundService
 local knownBlocks = {}
 local isFirstCheck = true
 
+-- Sistema de notificação (Som) otimizado
 task.spawn(function()
     while task.wait(0.5) do
         local pasta = Workspace:FindFirstChild("LuckyBlocksActive")
         if pasta then
+            local blocosAtivos = {}
             for _, bloco in pairs(pasta:GetChildren()) do
+                blocosAtivos[bloco] = true
                 if not knownBlocks[bloco] then
                     knownBlocks[bloco] = true
                     if not isFirstCheck then
@@ -26,6 +29,14 @@ task.spawn(function()
                     end
                 end
             end
+            
+            -- Limpa da memória os blocos que já foram pegos
+            for bloco, _ in pairs(knownBlocks) do
+                if not blocosAtivos[bloco] then
+                    knownBlocks[bloco] = nil
+                end
+            end
+            
             isFirstCheck = false
         end
     end
@@ -182,26 +193,39 @@ local function getNearestLuckyBlock()
 end
 
 local espAtivo = false
-local espObjects = {}
+local espObjects = {} -- Agora salva os objetos de cada bloco para não recriar toda hora
 local espRenderConnection = nil
 
 local function limparESP()
-    for _, obj in pairs(espObjects) do
-        if obj then obj:Destroy() end
+    for bloco, objs in pairs(espObjects) do
+        for _, obj in pairs(objs) do
+            if obj then obj:Destroy() end
+        end
     end
     table.clear(espObjects)
 end
 
 local function atualizarESP()
-    limparESP()
-    if not espAtivo then return end
+    if not espAtivo then 
+        limparESP()
+        return 
+    end
     
     local pasta = Workspace:FindFirstChild("LuckyBlocksActive")
-    if pasta then
-        for _, bloco in pairs(pasta:GetChildren()) do
+    if not pasta then return end
+    
+    local blocosAtuais = {}
+    
+    for _, bloco in pairs(pasta:GetChildren()) do
+        blocosAtuais[bloco] = true
+        
+        -- Só cria o ESP se ele ainda NÃO foi criado para este bloco específico
+        if not espObjects[bloco] then
             local mainPart, size, blockColor = getBlocoInfo(bloco)
             
             if mainPart then
+                local objs = {}
+                
                 local box = Instance.new("BoxHandleAdornment")
                 box.Size = size
                 box.Adornee = mainPart
@@ -210,7 +234,7 @@ local function atualizarESP()
                 box.Transparency = 0.2
                 box.ZIndex = 10
                 box.Parent = ScreenGui
-                table.insert(espObjects, box)
+                table.insert(objs, box)
 
                 local sel = Instance.new("SelectionBox")
                 sel.Adornee = bloco
@@ -218,7 +242,7 @@ local function atualizarESP()
                 sel.LineThickness = 0.08
                 sel.AlwaysOnTop = true
                 sel.Parent = ScreenGui
-                table.insert(espObjects, sel)
+                table.insert(objs, sel)
 
                 local bgui = Instance.new("BillboardGui")
                 bgui.Adornee = mainPart
@@ -237,8 +261,20 @@ local function atualizarESP()
                 texto.TextSize = 16
                 
                 bgui.Parent = ScreenGui
-                table.insert(espObjects, bgui)
+                table.insert(objs, bgui)
+                
+                espObjects[bloco] = objs
             end
+        end
+    end
+    
+    -- Apaga apenas os ESPs de blocos que não existem mais (já foram pegos)
+    for bloco, objs in pairs(espObjects) do
+        if not blocosAtuais[bloco] or not bloco.Parent then
+            for _, obj in pairs(objs) do
+                if obj then obj:Destroy() end
+            end
+            espObjects[bloco] = nil
         end
     end
 end
@@ -249,6 +285,8 @@ EspButton.MouseButton1Click:Connect(function()
         EspButton.Text = "ESP Lucky Block: ON"
         EspButton.TextColor3 = Color3.fromRGB(100, 255, 100)
         pointerPart.Parent = Workspace
+        
+        atualizarESP() -- Atualiza de imediato ao ligar
         
         espRenderConnection = RunService.RenderStepped:Connect(function()
             local char = player.Character
@@ -275,18 +313,19 @@ EspButton.MouseButton1Click:Connect(function()
     end
 end)
 
+-- Loop de atualização do ESP modificado para rodar a cada 3 segundos (sem causar lag)
+task.spawn(function()
+    while task.wait(3) do
+        if espAtivo then atualizarESP() end
+    end
+end)
+
 CloseButton.MouseButton1Click:Connect(function()
     espAtivo = false
     limparESP()
     pointerPart:Destroy()
     if espRenderConnection then espRenderConnection:Disconnect() end
     ScreenGui:Destroy()
-end)
-
-task.spawn(function()
-    while task.wait(1) do
-        if espAtivo then atualizarESP() end
-    end
 end)
 
 TpButton.MouseButton1Click:Connect(function()
@@ -327,4 +366,3 @@ task.spawn(function()
         end
     end
 end)
-
